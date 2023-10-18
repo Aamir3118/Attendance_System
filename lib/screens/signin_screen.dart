@@ -1,12 +1,19 @@
+import 'package:attendance_app/screens/admin_home_screen.dart';
+import 'package:attendance_app/screens/admin_signin_screen.dart';
+import 'package:attendance_app/screens/tabs_screen.dart';
 import 'package:attendance_app/services/auth_service.dart';
+import 'package:attendance_app/services/auth_state_notifier.dart';
 import 'package:attendance_app/widgets/widgets.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  const SignInScreen({
+    super.key,
+  });
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -22,6 +29,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final String iconImage = "assets/attenda.png";
     //backgroundColor: Theme.of(context).colorScheme.inversePrimary,
     return GestureDetector(
       onTap: () {
@@ -33,12 +41,23 @@ class _SignInScreenState extends State<SignInScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
+                  const SizedBox(
+                    height: 0,
+                  ),
+                  Image.asset(
+                    iconImage,
+                    height: 150,
+                    width: 180,
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
                   const Text(
                     "Sign In",
-                    style: TextStyle(color: Colors.deepPurple, fontSize: 30),
+                    style: TextStyle(fontSize: 30),
                   ),
                   const SizedBox(
                     height: 30,
@@ -47,36 +66,29 @@ class _SignInScreenState extends State<SignInScreen> {
                     key: formKey,
                     child: Column(
                       children: <Widget>[
-                        textFormField(
-                          emailController,
-                          "Enter Email",
-                          false,
-                          TextInputType.emailAddress,
-                          (value) {
-                            final bool isValid =
-                                EmailValidator.validate(value!);
-                            if (value.isEmpty) {
-                              return "Please enter email";
-                            } else if (!isValid) {
-                              return "Please enter valid email";
-                            }
-                            return null;
-                          },
+                        textFormField(emailController, "Enter Email", false,
+                            TextInputType.emailAddress, (value) {
+                          if (value!.isEmpty) {
+                            return "Please enter email";
+                          }
+                          return null;
+                        }, context, Icons.email_outlined),
+                        const SizedBox(
+                          height: 20,
                         ),
-                        textFormField(
-                          passwordController,
-                          "Enter Password",
-                          true,
-                          TextInputType.text,
-                          (value) {
-                            if (value!.isEmpty) {
-                              return "Please enter password";
-                            } else if (value.length < 8) {
-                              return "Password length should be greater than 8";
-                            }
-                            return null;
-                          },
-                        ),
+                        PasswordField(
+                            controller: passwordController,
+                            hint: "Enter Password",
+                            inputType: TextInputType.visiblePassword,
+                            validation: (value) {
+                              if (value!.isEmpty) {
+                                return "Please enter password";
+                              } else if (value.length < 8) {
+                                return "Password length should be greater than 8";
+                              }
+                              return null;
+                            },
+                            context: context)
                       ],
                     ),
                   ),
@@ -101,7 +113,8 @@ class _SignInScreenState extends State<SignInScreen> {
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12), color: Colors.deepPurple),
+            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).primaryColor),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(
@@ -130,8 +143,12 @@ class _SignInScreenState extends State<SignInScreen> {
         setState(() {
           isLoading = true;
         });
-        authService.signInWithEmailAndPassword(
+        //Provider.of<AuthStateNotifier>(context, listen: false).setLoading(true);
+        await authService.signInWithEmailAndPassword(
             emailController.text, passwordController.text);
+        setState(() {
+          isLoading = false;
+        });
       }
     } on FirebaseAuthException catch (error) {
       var errorMessage = 'Authentication failed!';
@@ -148,12 +165,13 @@ class _SignInScreenState extends State<SignInScreen> {
       setState(() {
         isLoading = false;
       });
+      //Provider.of<AuthStateNotifier>(context, listen: false).setLoading(false);
     } catch (err) {
       const errorMessage =
           'Could not authenticate you. Please try again later!';
 
       _showErrorDialog(errorMessage);
-
+      //Provider.of<AuthStateNotifier>(context, listen: false).setLoading(false);
       setState(() {
         isLoading = false;
       });
@@ -162,20 +180,22 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('An Error Occurred!'),
-        content: Text(message),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
-            child: Text('Ok'),
-          ),
-        ],
-      ),
-    );
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('An Error Occurred!'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+              },
+              child: Text('Ok'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
