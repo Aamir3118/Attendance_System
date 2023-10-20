@@ -40,7 +40,7 @@ class _TakeAttendanceState extends State<TakeAttendance> {
     print(widget.start_year);
     print(user2!.uid);
     print(widget.end_year);
-    print(DateFormat('dd-mm-yyyy').format(widget.date!));
+    print(DateFormat('dd-MM-yyyy').format(widget.date!));
     print(DateFormat('hh-mm').format(widget.date!));
     printStudents();
   }
@@ -238,7 +238,7 @@ class _TakeAttendanceState extends State<TakeAttendance> {
     print(widget.date);
     print(widget.time);
     try {
-      String pickedDate = DateFormat('dd-mm-yyyy').format(widget.date!);
+      String pickedDate = DateFormat('yyyy-MM-dd').format(widget.date!);
       String pickedTime = DateFormat('HH-mm').format(widget.date!);
 
       User? user = FirebaseAuth.instance.currentUser;
@@ -247,8 +247,8 @@ class _TakeAttendanceState extends State<TakeAttendance> {
         'course': widget.course,
         'div': widget.div,
         'subject': widget.subject,
-        'date': widget.date,
-        'time': widget.time
+        'date': pickedDate,
+        'time': pickedTime
       };
 
       if (user != null) {
