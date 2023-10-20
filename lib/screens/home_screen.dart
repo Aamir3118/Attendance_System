@@ -364,13 +364,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ElevatedButton(
                       child: Text("Next"),
                       onPressed: () {
+                        print("date: ${selectedDateTime}");
                         DateTime startDate = _selectedStartDate!;
                         DateTime endDate = _selectedEndDate!;
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (context) => TakeAttendance(
-                                  date: selectedDateTime.toString(),
-                                  time: _selectedTime
-                                      .toString(), // Pass the selected time
+                                  date: _selectedDate,
+                                  time: _selectedTime,
                                   course: _selectedCourse,
                                   subject: subController.text,
                                   div: _selectedDiv,

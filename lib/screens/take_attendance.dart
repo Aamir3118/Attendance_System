@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class TakeAttendance extends StatefulWidget {
-  final String date;
-  final String time;
+  final DateTime? date;
+  final TimeOfDay? time;
   final String? course;
   final String? subject;
   final String? div;
@@ -26,7 +28,9 @@ class TakeAttendance extends StatefulWidget {
 
 class _TakeAttendanceState extends State<TakeAttendance> {
   int selectedCount = 0;
+  List<Map<String, dynamic>> studentDataList = [];
   List<bool> isSelectedList = [];
+  User? user2 = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -34,7 +38,10 @@ class _TakeAttendanceState extends State<TakeAttendance> {
     print(widget.course);
     print(widget.div);
     print(widget.start_year);
+    print(user2!.uid);
     print(widget.end_year);
+    print(DateFormat('dd-mm-yyyy').format(widget.date!));
+    print(DateFormat('hh-mm').format(widget.date!));
     printStudents();
   }
 
@@ -140,7 +147,7 @@ class _TakeAttendanceState extends State<TakeAttendance> {
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No students found.'));
           } else {
-            List<Map<String, dynamic>> studentDataList = snapshot.data ?? [];
+            studentDataList = snapshot.data ?? [];
             isSelectedList = List.filled(studentDataList.length, false);
             // List<Map<String, dynamic>> studentDataList = snapshot.data!;
             return studentDataList.isEmpty
@@ -214,26 +221,7 @@ class _TakeAttendanceState extends State<TakeAttendance> {
                         child: Container(
                           margin: EdgeInsets.all(16.0),
                           child: ElevatedButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: Text('Selected Count'),
-                                    content: Text(
-                                        'Number of present students: $selectedCount'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: Text('Close'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
+                            onPressed: _submit,
                             child: Text('Submit'),
                           ),
                         ),
@@ -243,6 +231,117 @@ class _TakeAttendanceState extends State<TakeAttendance> {
           }
         },
       ),
+    );
+  }
+
+  Future<void> _submit() async {
+    print(widget.date);
+    print(widget.time);
+    try {
+      String pickedDate = DateFormat('dd-mm-yyyy').format(widget.date!);
+      String pickedTime = DateFormat('HH-mm').format(widget.date!);
+
+      User? user = FirebaseAuth.instance.currentUser;
+      String facultyId = user?.uid ?? '';
+      Map<String, dynamic> documentData = {
+        'course': widget.course,
+        'div': widget.div,
+        'subject': widget.subject,
+        'date': widget.date,
+        'time': widget.time
+      };
+
+      if (user != null) {
+        // The user is logged in, and you can access their user information
+        //String facultyName = user.displayName ?? 'Unknown Faculty';
+        CollectionReference facultiesCol =
+            FirebaseFirestore.instance.collection("faculties");
+        DocumentSnapshot facultiesDocSnap =
+            await facultiesCol.doc(facultyId).get();
+
+        if (facultiesDocSnap.exists) {
+          String facultyName = facultiesDocSnap['username'];
+          documentData['faculty'] = facultyName;
+
+          // Update documentData with the faculty name
+
+          CollectionReference attendanceCollection =
+              FirebaseFirestore.instance.collection("attendance");
+          Query existingDocQuery = attendanceCollection
+              .where('course', isEqualTo: widget.course)
+              .where('div', isEqualTo: widget.div)
+              .where('subject', isEqualTo: widget.subject)
+              .where('date', isEqualTo: pickedDate)
+              .where('time', isEqualTo: pickedTime)
+              .where('faculty', isEqualTo: facultyName);
+
+          QuerySnapshot existingDocs = await existingDocQuery.get();
+
+          if (existingDocs.docs.isNotEmpty) {
+            DocumentReference docRef = existingDocs.docs.first.reference;
+
+            // Create or update the "enrollments" sub-collection
+            CollectionReference enrollmentsCollection =
+                docRef.collection('enrollments');
+            for (int i = 0; i < studentDataList.length; i++) {
+              Map<String, dynamic> studentData = studentDataList[i];
+              String enrollmentNo = studentData['EnrollmentNo'];
+              bool isPresent = isSelectedList[i];
+
+              // Create or update the document for each student in the sub-collection
+              await enrollmentsCollection.doc(enrollmentNo).set({
+                'RollNo': studentData['RollNo'],
+                'Name': studentData['Name'],
+                'EnrollmentNo': enrollmentNo,
+                'Present': isPresent,
+              });
+            }
+          } else {
+            DocumentReference docRef =
+                await attendanceCollection.add(documentData);
+
+            // Create the "enrollments" sub-collection
+            CollectionReference enrollmentsCollection =
+                docRef.collection('enrollments');
+            for (int i = 0; i < studentDataList.length; i++) {
+              Map<String, dynamic> studentData = studentDataList[i];
+              String enrollmentNo = studentData['EnrollmentNo'];
+              bool isPresent = isSelectedList[i];
+
+              // Create a document for each student in the sub-collection
+              await enrollmentsCollection.doc(enrollmentNo).set({
+                'RollNo': studentData['RollNo'],
+                'Name': studentData['Name'],
+                'EnrollmentNo': enrollmentNo,
+                'Present': isPresent,
+              });
+            }
+          }
+        }
+        _showSuccessDialog();
+      }
+    } catch (e) {
+      print('Error while getting the currently logged-in user: $e');
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Success'),
+          content: Text('Data has been successfully sent to the database.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
